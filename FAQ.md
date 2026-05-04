@@ -6,6 +6,25 @@ A set of Python scripts that generate French tax declaration data for French-res
 
 ---
 
+## What are the "Dispositions de Ruyter" and why do they matter?
+
+The *dispositions de Ruyter* stem from the CJUE ruling **C-623/13** (*de Ruyter v. Ministre des Finances et des Comptes publics*, 26 February 2015). The Court held that a member state cannot levy social contributions on investment income if the taxpayer is already affiliated to another member state's social security system — because that creates a dual contribution obligation prohibited by EU Regulation 883/2004.
+
+For French tax residents who work **in Switzerland under Swiss social insurance (LAMal)**, this means the French **CSG (9.2 %)** and **CRDS (0.5 %)** are not due on capital gains and dividends during Swiss work periods. The effective PFU rate drops from **30.0 %** (12.8 % IR + 17.2 % prélèvements sociaux) to **20.3 %** (12.8 % IR + 7.5 % *prélèvement de solidarité*, the only social levy that still applies to non-EU-coordinated residents).
+
+The rate is determined **at the date of each transaction**, not for the whole year. If you alternate between Swiss and French employment (or unemployment), each gain line gets its own rate:
+
+| Period | Affiliation | PFU rate |
+|--------|-------------|----------|
+| Swiss work period | LAMal | **20.3 %** |
+| French unemployment / French employment | Sécurité Sociale | **30.0 %** |
+
+Legal basis: art. L136-6 and L136-7 I ter CSS; confirmed by DGFiP doctrine at **BOI-RSA-GEO-30** and the Conseil d'État ruling of 27 July 2015 (n° 334551).
+
+> **Note**: this applies only to **frontaliers and detached workers actually enrolled in LAMal** during the Swiss work period. French residents who simply invest in Swiss securities but work in France remain subject to the full 30.0 % PFU.
+
+---
+
 ## What is the PMP method?
 
 PMP (*Prix Moyen Pondéré*) is the weighted average cost method required by French tax law (art. 150-0 D CGI) to compute capital gains on securities. Each buy updates the average cost per share; each sell computes the gain against that average.

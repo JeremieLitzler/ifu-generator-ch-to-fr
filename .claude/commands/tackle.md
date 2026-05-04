@@ -205,7 +205,7 @@ Wait for explicit approval before proceeding to Step 8. If the user requests cha
 Run:
 
 ```bash
-rtk gh pr merge <pr-number> --squash --delete-branch
+rtk gh pr merge <pr-number> --rebase --delete-branch
 ```
 
 Then pull main locally to stay in sync:

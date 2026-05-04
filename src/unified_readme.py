@@ -7,13 +7,14 @@ un tableau par formulaire avec les montants exacts à saisir en ligne.
 
 Usage:
     python3 src/unified_readme.py <année> [--ifu-root <dossier>]
+                                  [--de-ruyter-periods JSON_OU_FICHIER]
                                   [-s | -f | -ff | -cldp [--penalty-scenario ...] [--declaration-deadline YYYY-MM-DD]]
 
 Prérequis :
     Avoir exécuté yuh_csv_ifu.py et/ou wise_csv_ifu.py au préalable.
 
 Produit :
-    ifu/<année>/README.md  — valeurs à saisir par formulaire (2074, 2042)
+    ifu-new/<année>/README.md  — valeurs à saisir par formulaire (2074, 2042)
 """
 import argparse
 import csv
@@ -26,6 +27,8 @@ if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
+from de_ruyter import DeRuyterConfig, pfu_rate_label, load_de_ruyter_arg
 
 
 # ---------------------------------------------------------------------------
@@ -46,12 +49,45 @@ def _f(s: str) -> float:
         return 0.0
 
 
-def sum_gains(rows: list[dict], col: str = 'Plus/moins-value EUR') -> float:
-    return sum(_f(r[col]) for r in rows if col in r)
-
-
 def sum_col(rows: list[dict], col: str) -> float:
     return sum(_f(r[col]) for r in rows if col in r)
+
+
+# ---------------------------------------------------------------------------
+# Calcul gains × taux PFU par source
+# ---------------------------------------------------------------------------
+
+def _row_tax_and_gain(
+    row: dict,
+    date_col: str,
+    gain_col: str,
+    de_ruyter: DeRuyterConfig,
+) -> tuple[str, float, float]:
+    """Returns (rate_label, gain_eur, tax_eur) for one gain row."""
+    tx_date = date.fromisoformat(row[date_col])
+    rate = de_ruyter.pfu_rate_on(tx_date)
+    gain = _f(row[gain_col])
+    rounded = _f(row.get('Montant arrondi EUR', '0'))
+    tax = rounded * rate if rounded > 0 else 0.0
+    return pfu_rate_label(rate), gain, tax
+
+
+def _group_gains(
+    rows: list[dict],
+    date_col: str,
+    gain_col: str,
+    de_ruyter: DeRuyterConfig,
+) -> dict[str, dict]:
+    """Group gain rows by rate label → {'gain': float, 'tax': float}."""
+    result: dict[str, dict] = {}
+    for row in rows:
+        if date_col not in row or gain_col not in row:
+            continue
+        rate_label, gain, tax = _row_tax_and_gain(row, date_col, gain_col, de_ruyter)
+        entry = result.setdefault(rate_label, {'gain': 0.0, 'tax': 0.0})
+        entry['gain'] += gain
+        entry['tax'] += tax
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -65,8 +101,17 @@ def main():
         epilog=__doc__,
     )
     parser.add_argument('year', type=int, help='Année fiscale cible (ex. 2024)')
-    parser.add_argument('--ifu-root', default='ifu',
-                        help="Dossier racine des sorties broker (défaut: 'ifu')")
+    parser.add_argument('--ifu-root', default='ifu-new',
+                        help="Dossier racine des sorties broker (défaut: 'ifu-new')")
+    parser.add_argument('--de-ruyter-periods',
+                        default=None,
+                        metavar='JSON_OU_FICHIER',
+                        help=(
+                            "Périodes de travail en Suisse (LAMal). "
+                            "Chemin vers un fichier JSON ou JSON inline. "
+                            "Si absent : utilise src/config/de_ruyter_periods.json "
+                            "(ou PFU 30 %% si le fichier n'existe pas)."
+                        ))
     parser.add_argument('--calculate-late-declaration-penalties', '-cldp',
                         action='store_true')
     parser.add_argument('--penalty-scenario',
@@ -88,6 +133,8 @@ def main():
         args.calculate_late_declaration_penalties = True
         args.penalty_scenario = 'spontaneous'
 
+    de_ruyter = load_de_ruyter_arg(args.de_ruyter_periods)
+
     year = args.year
     root = Path(args.ifu_root)
 
@@ -99,13 +146,26 @@ def main():
     yuh_gains  = _read_csv(yuh_dir  / f'{year}_gains_2074.csv')
     wise_gains = _read_csv(wise_dir / f'{year}_gains_2074.csv')
 
-    yuh_2074  = sum_gains(yuh_gains,  'Plus/moins-value EUR')
-    wise_2074 = sum_gains(wise_gains, 'Plus/moins-value EUR (PMP)')
-    total_2074 = yuh_2074 + wise_2074
+    yuh_groups  = _group_gains(yuh_gains,  'Date cession', 'Plus/moins-value EUR (PMP)', de_ruyter)
+    wise_groups = _group_gains(wise_gains, 'Date cession', 'Plus/moins-value EUR (PMP)', de_ruyter)
+
+    all_rate_labels = sorted(set(yuh_groups) | set(wise_groups))
+    combined_groups: dict[str, dict] = {
+        rate_label: {
+            'gain': yuh_groups.get(rate_label, {'gain': 0.0, 'tax': 0.0})['gain']
+                    + wise_groups.get(rate_label, {'gain': 0.0, 'tax': 0.0})['gain'],
+            'tax':  yuh_groups.get(rate_label, {'gain': 0.0, 'tax': 0.0})['tax']
+                    + wise_groups.get(rate_label, {'gain': 0.0, 'tax': 0.0})['tax'],
+        }
+        for rate_label in all_rate_labels
+    }
+    total_gain = sum(v['gain'] for v in combined_groups.values())
+    total_tax  = sum(v['tax']  for v in combined_groups.values())
+    mixed_rates = len(all_rate_labels) > 1
 
     # --- Gains 2086 (informatif Yuh uniquement) ---
     yuh_gains_2086 = _read_csv(yuh_dir / f'{year}_gains_2086.csv')
-    yuh_2086 = sum_gains(yuh_gains_2086, 'Plus/moins-value EUR')
+    yuh_2086 = sum_col(yuh_gains_2086, 'Plus/moins-value EUR')
     yuh_2086_proceeds = sum_col(yuh_gains_2086, 'Prix de cession EUR')
 
     # --- Dividendes 2042 (Yuh uniquement — Wise fonds capitalisants) ---
@@ -120,7 +180,6 @@ def main():
     wise_fees = _read_csv(wise_dir / f'{year}_fees.csv')
     total_fees = sum_col(wise_fees, 'Montant EUR')
 
-    # Détermination des sources disponibles
     sources = []
     if yuh_gains or yuh_divs:
         sources.append('Yuh')
@@ -152,29 +211,42 @@ def main():
     h(f"\n> Généré le {today} · Sources : {', '.join(sources)}\n")
 
     # --- Formulaire 2074 ---
-    h("## Formulaire 2074 — Plus/moins-values valeurs mobilières\n")
+    pfu_note = " — de Ruyter actif" if de_ruyter.is_active() else ""
+    h(f"## Formulaire 2074 — Plus/moins-values valeurs mobilières{pfu_note}\n")
 
     if yuh_gains or wise_gains:
-        yuh_label  = f"{yuh_2074:+.2f} €"  if yuh_gains  else "—"
-        wise_label = f"{wise_2074:+.2f} €" if wise_gains else "—"
-        rounded = round(total_2074)
+        rounded = round(total_gain)
         box = "**3VG**" if rounded >= 0 else "**3VH**"
-        h("| Source | Gain/perte EUR |")
-        h("|--------|---------------|")
-        if yuh_gains:
-            h(f"| Yuh | {yuh_label} |")
-        if wise_gains:
-            h(f"| Wise | {wise_label} |")
-        h(f"| **Total** | **{total_2074:+.2f} €** |")
+
+        h("| Source | Taux PFU | Gain/perte EUR | Impôt estimé |")
+        h("|--------|----------|---------------|-------------|")
+        for rate_label in all_rate_labels:
+            if rate_label in yuh_groups:
+                g = yuh_groups[rate_label]
+                tax_str = f"{g['tax']:.2f} €" if g['gain'] > 0 else "—"
+                h(f"| Yuh  | {rate_label} | {g['gain']:+.2f} € | {tax_str} |")
+            if rate_label in wise_groups:
+                g = wise_groups[rate_label]
+                tax_str = f"{g['tax']:.2f} €" if g['gain'] > 0 else "—"
+                h(f"| Wise | {rate_label} | {g['gain']:+.2f} € | {tax_str} |")
+        h(f"| **Total** | | **{total_gain:+.2f} €** | **{total_tax:.2f} €** |")
+        h(f"\n> Impôt estimé = Σ (Montant arrondi EUR × Taux PFU) par cession.")
+
         h(f"\n→ Saisir **{rounded:+d} €** en case {box}")
         if rounded >= 0:
             h("\n> Plus-value : case **3VG** du formulaire 2074 (et 2042 C ligne 3VG).")
         else:
             h("\n> Moins-value : case **3VH** du formulaire 2074 (imputable sur gains futurs).")
+        if de_ruyter.is_active():
+            h("\n> Régime de Ruyter : taux PFU réduit à **20,3 %** sur les cessions réalisées "
+              "durant les périodes de travail en Suisse (LAMal). "
+              "Exonération CSG (9,2 %) + CRDS (0,5 %). "
+              "Le montant à saisir en 3VG reste le total brut — la réduction s'applique "
+              "lors du calcul des prélèvements sociaux.")
     else:
         h(f"Aucune cession en {year} — rien à déclarer.")
 
-    if args.calculate_late_declaration_penalties and (yuh_gains or wise_gains) and total_2074 > 0:
+    if args.calculate_late_declaration_penalties and (yuh_gains or wise_gains) and total_gain > 0:
         _RATES = {
             'spontaneous': (0.10, "correction spontanée avant mise en demeure"),
             'formal':      (0.40, "après mise en demeure"),
@@ -189,7 +261,7 @@ def main():
         months_delay = (
             math.ceil((today_date - deadline).days / 30.4375) if today_date > deadline else 0
         )
-        tax_owed = round(rounded * 0.30)  # rounded = round(total_2074), already computed above
+        tax_owed = round(total_tax)
         late_interest = round(tax_owed * 0.002 * months_delay)
         surcharge = round(tax_owed * penalty_rate)
         total_due = tax_owed + late_interest + surcharge
@@ -200,8 +272,14 @@ def main():
           f"(échéance : {deadline.isoformat()}, calcul au {today_date.isoformat()})\n")
         h("| | Montant |")
         h("|---|---------|")
-        h(f"| Plus-value nette (arrondie, case 3VG) | {rounded:+d} € |")
-        h(f"| Impôt dû (PFU 30 %) | {tax_owed} € |")
+        for rate_label in all_rate_labels:
+            grp = combined_groups[rate_label]
+            gain_at_rate = round(grp['gain'])
+            tax_at_rate = round(grp['tax'])
+            h(f"| Plus-value nette (arrondie, case 3VG) ({rate_label}) | {gain_at_rate:+d} € |")
+            h(f"| Impôt dû ({rate_label}) | {tax_at_rate} € |")
+        if mixed_rates:
+            h(f"| **Impôt dû total** | **{tax_owed} €** |")
         h(f"| Intérêts de retard (0,20 % × {months_delay} mois) | {late_interest} € |")
         h(f"| Majoration ({penalty_rate * 100:.0f} %) | {surcharge} € |")
         h(f"| **Total estimé à régulariser** | **{total_due} €** |\n")

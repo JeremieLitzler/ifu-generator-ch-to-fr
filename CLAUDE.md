@@ -31,6 +31,10 @@ Shell wrappers in `scripts/` call the Python scripts from the repo root.
 
 Same FXCache and PMP logic. Input columns: `Traded Asset ID Value`, `Execution Date`, `Transaction Type` (BUY / SELL / FEE_CHARGE), `Traded Units`, `Settlement Amount`, `Settlement Currency`. FEE_CHARGE rows are logged separately and excluded from cost basis.
 
+## Dependencies
+
+- All runtime dependencies are listed in `requirements.txt`. Update it when adding a new `import` that requires a third-party package.
+
 ## Key implementation rules
 
 - **Crypto-ETPs**: `CRYPTO_ETP_ISINS` in `yuh_csv_ifu.py` must be updated when new crypto-ETPs are held.

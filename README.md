@@ -24,7 +24,7 @@ A unified Markdown summary per year provide the figures to fill in forms 2074, 2
 ## Prerequisites
 
 ```bash
-pip install requests
+pip install -r requirements.txt
 ```
 
 ---

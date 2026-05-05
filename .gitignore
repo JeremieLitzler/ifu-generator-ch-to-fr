@@ -209,6 +209,6 @@ __marimo__/
 guide-investissement-frontalier.md
 transactions/*.csv
 transactions/*.pdf
-ifu/
+ifu*/
 fx_cache.json
 tests/output/

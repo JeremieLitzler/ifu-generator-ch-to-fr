@@ -31,6 +31,7 @@ Hypothèses :
 """
 import argparse
 import csv
+import json
 import math
 import re
 import sys
@@ -53,6 +54,7 @@ from constants import (
     BANK_AUTO_ORDER_EXECUTED,
 )
 from ticker_isin import TICKER_ISIN, NON_SECURITY_ASSETS, TICKER_NAME_KEYWORDS
+from de_ruyter import DeRuyterConfig, pfu_rate_label, load_de_ruyter_arg
 
 
 # ---------------------------------------------------------------------------
@@ -351,8 +353,17 @@ def main():
                         help="Alias : -cldp --penalty-scenario formal (après mise en demeure, majoration 40 %%)")
     parser.add_argument('-ff', action='store_true', dest='penalty_ff',
                         help="Alias : -cldp --penalty-scenario fraud (manœuvres frauduleuses, majoration 80 %%)")
-    parser.add_argument('--out', default='ifu',
-                        help="Dossier racine pour les fichiers de sortie (défaut: 'ifu')")
+    parser.add_argument('--out', default='ifu-new',
+                        help="Dossier racine pour les fichiers de sortie (défaut: 'ifu-new')")
+    parser.add_argument('--de-ruyter-periods',
+                        default=None,
+                        metavar='JSON_OU_FICHIER',
+                        help=(
+                            "Périodes de travail en Suisse (LAMal) pour application des dispositions de Ruyter. "
+                            "Chemin vers un fichier JSON ou JSON inline. "
+                            "Si absent : utilise src/config/de_ruyter_periods.json "
+                            "(ou PFU standard 30 % si le fichier n'existe pas)."
+                        ))
     args = parser.parse_args()
 
     # Résoudre les alias de scénario de pénalité
@@ -365,6 +376,8 @@ def main():
     elif args.penalty_s:
         args.calculate_late_declaration_penalties = True
         args.penalty_scenario = 'spontaneous'
+
+    de_ruyter = load_de_ruyter_arg(args.de_ruyter_periods)
 
     target_year = args.year
     folder = Path(args.folder)
@@ -569,10 +582,11 @@ def main():
         writer.writerow([
             'Date cession', 'ID', 'Ticker', 'ISIN', 'Titre',
             'Quantité cédée', 'Prix de cession EUR',
-            'Prix de revient PMP EUR', 'Plus/moins-value EUR',
-            'Montant arrondi EUR', 'Crypto-ETP',
+            'Prix de revient PMP EUR', 'Plus/moins-value EUR (PMP)',
+            'Montant arrondi EUR', 'Crypto-ETP', 'Taux PFU',
         ])
         for g in sorted(gains_2074, key=lambda x: x['date']):
+            gain_pfu_rate = de_ruyter.pfu_rate_on(date.fromisoformat(g['date']))
             writer.writerow([
                 g['date'], g['row_id'], g['ticker'], g['isin'], g['name'],
                 f"{g['quantity']:.6f}",
@@ -581,6 +595,7 @@ def main():
                 f"{g['gain_eur']:+.2f}",
                 f"{round(g['gain_eur']):+d}",
                 'oui' if g['is_crypto_etp'] else 'non',
+                f"{gain_pfu_rate}",
             ])
     print(f"📊 Cessions (form. 2074)  → {gains_2074_csv}")
 
@@ -591,11 +606,13 @@ def main():
         writer.writerow([
             'Date cession', 'ID', 'Ticker', 'ISIN', 'Titre',
             'Quantité cédée', 'Prix de cession EUR',
-            'Prix de revient PMP EUR', 'Plus/moins-value EUR',
+            'Prix de revient PMP EUR', 'Plus/moins-value EUR (PMP)',
             'Montant arrondi EUR',
             '⚠ INFORMATIF — seulement si DGFiP requalifie en actifs numériques',
+            'Taux PFU',
         ])
         for g in sorted(gains_2086_info, key=lambda x: x['date']):
+            gain_pfu_rate = de_ruyter.pfu_rate_on(date.fromisoformat(g['date']))
             writer.writerow([
                 g['date'], g['row_id'], g['ticker'], g['isin'], g['name'],
                 f"{g['quantity']:.6f}",
@@ -604,6 +621,7 @@ def main():
                 f"{g['gain_eur']:+.2f}",
                 f"{round(g['gain_eur']):+d}",
                 '',
+                f"{gain_pfu_rate}",
             ])
     print(f"📊 Cessions (form. 2086)  → {gains_2086_csv}  ⚠ informatif")
 
@@ -639,9 +657,19 @@ def main():
     by_year_2086: dict[str, float] = {}
     proceeds_by_year_2086: dict[str, float] = {}
 
+    by_year_rate_2074: dict[str, dict] = {}
     for g in gains_2074:
         y = g['date'][:4]
         by_year_2074[y] = by_year_2074.get(y, 0.0) + g['gain_eur']
+        rate = de_ruyter.pfu_rate_on(date.fromisoformat(g['date']))
+        rate_lbl = pfu_rate_label(rate)
+        rounded_gain = round(g['gain_eur'])
+        row_tax = rounded_gain * rate if rounded_gain > 0 else 0.0
+        if y not in by_year_rate_2074:
+            by_year_rate_2074[y] = {}
+        entry = by_year_rate_2074[y].setdefault(rate_lbl, {'gain': 0.0, 'tax': 0.0})
+        entry['gain'] += g['gain_eur']
+        entry['tax'] += row_tax
     for g in gains_2086_info:
         y = g['date'][:4]
         by_year_2086[y] = by_year_2086.get(y, 0.0) + g['gain_eur']
@@ -658,7 +686,24 @@ def main():
     h(f"\n> Généré le {datetime.now().strftime('%Y-%m-%d')} "
       f"· PMP calculé sur {len(all_csvs)} fichier(s) CSV\n")
 
-    h("## Formulaire 2074 — Valeurs mobilières (PFU 30 %)")
+    if de_ruyter.is_active():
+        h("## Régime de Ruyter\n")
+        h("Exonération CSG (9,2 %) et CRDS (0,5 %) sur les revenus de cession et les "
+          "dividendes durant les périodes de travail en Suisse (LAMal).\n")
+        h("Taux PFU réduit : **20,3 %** (7,5 % solidarité + 12,8 % IR) "
+          "au lieu de **30,0 %** (17,2 % prélèvements sociaux + 12,8 % IR).\n")
+        h("| Début | Fin | Type | Taux PFU |")
+        h("|-------|-----|------|----------|")
+        for period_raw in de_ruyter.periods_as_raw():
+            fin = period_raw['end_date'] or 'ouvert'
+            period_type = period_raw.get('type', 'switzerland')
+            type_label = 'Suisse' if period_type == 'switzerland' else 'France'
+            rate_lbl = '20,3 %' if period_type == 'switzerland' else '30,0 %'
+            h(f"| {period_raw['start_date']} | {fin} | {type_label} | {rate_lbl} |")
+        h("")
+
+    pfu_titre = "de Ruyter actif" if de_ruyter.is_active() else "PFU 30 %"
+    h(f"## Formulaire 2074 — Valeurs mobilières ({pfu_titre})")
     h("Plus-value nette → case 3VG | Moins-value → case 3VH\n")
     if by_year_2074:
         h("| Année | Gain/perte EUR | Arrondi | Case |")
@@ -668,6 +713,14 @@ def main():
             rounded = round(total)
             box = "3VG" if rounded >= 0 else "3VH"
             h(f"| {year} | {total:+.2f} | {rounded:+d} € | {box} |")
+        if de_ruyter.is_active():
+            h("\n### Répartition par taux PFU\n")
+            h("| Année | Taux PFU | Gain/perte EUR |")
+            h("|-------|----------|---------------|")
+            for yr in sorted(by_year_rate_2074):
+                for rate_lbl in sorted(by_year_rate_2074[yr]):
+                    total = by_year_rate_2074[yr][rate_lbl]['gain']
+                    h(f"| {yr} | {rate_lbl} | {total:+.2f} € |")
     else:
         h(f"Aucune cession en {target_year} — rien à déclarer.")
 
@@ -697,8 +750,8 @@ def main():
                 h("Moins-value ou gain nul — aucun impôt dû, pas de pénalité applicable.")
                 continue
 
-            net_gain_rounded = round(net_gain)
-            tax_owed = round(net_gain_rounded * 0.30)
+            rate_groups = by_year_rate_2074.get(year_str, {})
+            tax_owed = round(sum(grp['tax'] for grp in rate_groups.values()))
             late_interest = round(tax_owed * 0.002 * months_delay)
             penalty_surcharge = round(tax_owed * penalty_rate)
             total_due = tax_owed + late_interest + penalty_surcharge
@@ -709,8 +762,14 @@ def main():
               f"(échéance : {deadline.isoformat()}, calcul au {today.isoformat()})\n")
             h("| | Montant |")
             h("|---|---------|")
-            h(f"| Plus-value nette (arrondie, case 3VG) | {net_gain_rounded:+d} € |")
-            h(f"| Impôt dû (PFU 30 %) | {tax_owed} € |")
+            for rate_lbl in sorted(rate_groups):
+                grp = rate_groups[rate_lbl]
+                gain_at_rate = round(grp['gain'])
+                tax_at_rate = round(grp['tax'])
+                h(f"| Plus-value nette (arrondie, case 3VG) ({rate_lbl}) | {gain_at_rate:+d} € |")
+                h(f"| Impôt dû ({rate_lbl}) | {tax_at_rate} € |")
+            if len(rate_groups) > 1:
+                h(f"| **Impôt dû total** | **{tax_owed} €** |")
             h(f"| Intérêts de retard (0,20 % × {months_delay} mois) | {late_interest} € |")
             h(f"| Majoration ({penalty_rate * 100:.0f} %) | {penalty_surcharge} € |")
             h(f"| **Total estimé à régulariser** | **{total_due} €** |\n")
@@ -791,6 +850,9 @@ def main():
             h(f"\n> Zone AA (retenue à la source / ligne 2AB) : **0 €** confirmé"
               f" — tous les dividendes proviennent d'instruments à retenue nulle"
               f" (IE/LU/GB/FR : pas de retenue sur distributions aux non-résidents).")
+        if de_ruyter.is_active():
+            h(f"\n> Régime de Ruyter : le taux PFU (colonne **Taux PFU**) est déterminé"
+              f" à la date de chaque distribution dans `{div_csv.name}`.")
 
     h(f"\n## Positions au 31/12/{target_year}\n")
     open_positions = [(isin, p) for isin, p in positions_at_year_end.items()

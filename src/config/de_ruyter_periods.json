@@ -1,0 +1,6 @@
+[
+  {"start_date": "2023-07-01", "end_date": "2023-10-15", "type":"france"},
+  {"start_date": "2023-10-16", "end_date": "2025-05-31", "type":"switzerland"},
+  {"start_date": "2025-06-01", "end_date": "2025-07-06", "type":"france"},
+  {"start_date": "2025-07-07", "end_date": null, "type":"switzerland"}
+]

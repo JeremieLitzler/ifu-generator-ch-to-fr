@@ -61,6 +61,28 @@ rtk git checkout -b <branch-name>
 
 ---
 
+## Step 3b — Research: best approaches
+
+Before writing any code, research how to fulfil the issue requirements. Structure the research in two passes:
+
+**Business perspective** — what problem does this solve? Who is affected? What are the acceptance criteria in plain language? If anything is ambiguous, list the open questions explicitly.
+
+**Technical perspective** — which files, functions, or data structures are involved? What is the minimal change that satisfies the requirements? Are there edge cases or constraints from `CLAUDE.md` that apply?
+
+Keep the output succinct and accurate. If something is unclear, **ask the user directly** rather than assuming.
+
+---
+
+## Step 3c — Human review: specs
+
+Present the research summary (business + technical) and any open questions. Ask the user:
+
+> "Do the specs look right? Any clarifications before I start implementing?"
+
+Wait for explicit approval before proceeding to Step 4. If the user answers questions or requests adjustments, update the research summary and repeat this step.
+
+---
+
 ## Step 4 — Implement
 
 Read the issue body carefully. Understand exactly what needs to change before touching any file.

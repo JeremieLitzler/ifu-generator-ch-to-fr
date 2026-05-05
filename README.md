@@ -2,11 +2,12 @@
 
 Generates French tax declaration data (IFU equivalent) for French-resident cross-border workers (frontaliers) holding investment accounts at **Yuh/Swissquote** and/or **Wise Assets**.
 
-Implements the **PMP method** (art. 150-0 D CGI) with ECB CHF→EUR exchange rates. 
+Implements the **PMP method** (art. 150-0 D CGI) with ECB CHF→EUR exchange rates.
 
-Produces per year and  broker:
+Produces per year and broker:
+
 - CSVs with detailed data, if the authorities ask for them
-- a summary Markdown file. 
+- a summary Markdown file.
 
 A unified Markdown summary per year provide the figures to fill in forms 2074, 2086, and 2042.
 
@@ -14,10 +15,10 @@ A unified Markdown summary per year provide the figures to fill in forms 2074, 2
 
 ## Supported brokers
 
-| Broker | Input files | Output folder |
-|--------|------------|---------------|
-| Yuh / Swissquote | `ACTIVITIES_REPORT-*.CSV` | `ifu-new/<year>/yuh/` |
-| Wise Assets | `wise_assets_statement_*.csv` | `ifu-new/<year>/wise/` |
+| Broker           | Input files                   | Output folder          |
+| ---------------- | ----------------------------- | ---------------------- |
+| Yuh / Swissquote | `ACTIVITIES_REPORT-*.CSV`     | `ifu-new/<year>/yuh/`  |
+| Wise Assets      | `wise_assets_statement_*.csv` | `ifu-new/<year>/wise/` |
 
 ---
 
@@ -26,6 +27,11 @@ A unified Markdown summary per year provide the figures to fill in forms 2074, 2
 ```bash
 pip install -r requirements.txt
 ```
+
+Dependencies:
+
+- `requests` for ECB exchange rates
+- `openpyxl` for Excel export
 
 ---
 
@@ -57,14 +63,14 @@ python src/yuh_csv_ifu.py 2024 -ff   # fraud (80 %)
 
 **Output files** in `ifu-new/<year>/yuh/`:
 
-| File | Content |
-|------|---------|
-| `<year>_transactions.csv` | All operations with CHF/USD→EUR conversion |
-| `<year>_gains_2074.csv` | Capital gains/losses → form 2074 (securities); includes `Taux PFU` column |
-| `<year>_gains_2086.csv` | Crypto-ETP gains → form 2086 (informational); includes `Taux PFU` column |
-| `<year>_dividendes.csv` | Dividends and distributions |
-| `<year>_summary.csv` | Positions and PMP at 31/12 |
-| `<year>_fx_log.csv` | ECB rates used |
+| File                      | Content                                                                   |
+| ------------------------- | ------------------------------------------------------------------------- |
+| `<year>_transactions.csv` | All operations with CHF/USD→EUR conversion                                |
+| `<year>_gains_2074.csv`   | Capital gains/losses → form 2074 (securities); includes `Taux PFU` column |
+| `<year>_gains_2086.csv`   | Crypto-ETP gains → form 2086 (informational); includes `Taux PFU` column  |
+| `<year>_dividendes.csv`   | Dividends and distributions                                               |
+| `<year>_summary.csv`      | Positions and PMP at 31/12                                                |
+| `<year>_fx_log.csv`       | ECB rates used                                                            |
 
 ---
 
@@ -84,14 +90,33 @@ Same `--de-ruyter-periods` and penalty flags (`-s`, `-f`, `-ff`) apply.
 
 **Output files** in `ifu-new/<year>/wise/`:
 
-| File | Content |
-|------|---------|
-| `<year>_transactions.csv` | All operations with EUR conversion |
-| `<year>_gains_2074.csv` | Capital gains/losses → form 2074; includes `Taux PFU` column |
-| `<year>_dividendes.csv` | Dividends (empty for accumulating funds) |
-| `<year>_fees.csv` | Monthly management fees (not deductible under PFU) |
-| `<year>_summary.csv` | Positions and PMP at 31/12 |
-| `<year>_fx_log.csv` | ECB rates used |
+| File                      | Content                                                      |
+| ------------------------- | ------------------------------------------------------------ |
+| `<year>_transactions.csv` | All operations with EUR conversion                           |
+| `<year>_gains_2074.csv`   | Capital gains/losses → form 2074; includes `Taux PFU` column |
+| `<year>_dividendes.csv`   | Dividends (empty for accumulating funds)                     |
+| `<year>_fees.csv`         | Monthly management fees (not deductible under PFU)           |
+| `<year>_summary.csv`      | Positions and PMP at 31/12                                   |
+| `<year>_fx_log.csv`       | ECB rates used                                               |
+
+---
+
+## Usage — Excel export
+
+After running either (or both) broker scripts, convert the CSVs to Excel workbooks:
+
+```bash
+python src/csv_to_excel.py 2024 [--ifu-root ifu-new]
+```
+
+**Output files** in `ifu-new/<year>/excel/`:
+
+| File                   | Sheets                                                                                |
+| ---------------------- | ------------------------------------------------------------------------------------- |
+| `yuh_<year>_ifu.xlsx`  | One sheet per CSV (dividendes, fx_log, gains_2074, gains_2086, summary, transactions) |
+| `wise_<year>_ifu.xlsx` | One sheet per CSV (dividendes, fees, fx_log, gains_2074, summary, transactions)       |
+
+Only workbooks for broker subdirectories that already exist are created — no error if one broker is missing.
 
 ---
 

@@ -12,6 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `src/fees_by_activity.py` | Debug utility: groups Yuh `FEES/COMMISSION` by `ACTIVITY_TYPE` |
 | `src/constants.py` | `ACTIVITY_TYPE` string constants for Yuh CSV rows |
 | `src/ticker_isin.py` | `TICKER_ISIN` dict (Yuh ticker → ISIN + name). Update when new securities appear. |
+| `src/csv_to_excel.py` | Standalone script: reads broker CSV outputs and writes `<broker>_<year>_ifu.xlsx` into `<ifu-root>/<year>/excel/`. Run after the broker scripts. |
 
 Shell wrappers in `scripts/` call the Python scripts from the repo root.
 

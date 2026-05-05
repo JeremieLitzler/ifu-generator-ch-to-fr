@@ -4,7 +4,7 @@ fees_by_activity.py — Groupe les frais (FEES/COMMISSION) par ACTIVITY TYPE
 à partir des exports CSV Yuh (ACTIVITIES_REPORT-*.CSV).
 
 Usage:
-    python fees_by_activity.py <year> [--folder transactions]
+    python fees_by_activity.py <year> [--transactions-folder transactions]
 
 Exemple:
     python fees_by_activity.py 2023
@@ -41,17 +41,17 @@ def process_files(paths: list[Path]) -> dict[str, float]:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Sum FEES/COMMISSION by ACTIVITY TYPE")
     parser.add_argument("year", help="Year suffix, e.g. 2023")
-    parser.add_argument("--folder", default="transactions", help="Folder containing the CSV files")
+    parser.add_argument("--transactions-folder", "-tf", default="transactions", help="Folder containing the CSV files")
     args = parser.parse_args()
 
-    path = Path(args.folder) / f"ACTIVITIES_REPORT-{args.year}.CSV"
+    path = Path(args.transactions_folder) / f"ACTIVITIES_REPORT-{args.year}.CSV"
     if not path.exists():
         print(f"File not found: {path}")
         return
     paths = [path]
 
     if not paths:
-        print(f"No CSV files found in '{args.folder}'.")
+        print(f"No CSV files found in '{args.transactions_folder}'.")
         return
 
     print(f"Processing {len(paths)} file(s):")

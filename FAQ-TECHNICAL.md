@@ -41,12 +41,12 @@ The README is for **users**: it covers what the tool does, which brokers are sup
 | `scripts/generate_ifu_yuh.sh`  | `src/yuh_csv_ifu.py`  | `bash scripts/generate_ifu_yuh.sh <year> [options]`  |
 | `scripts/generate_ifu_wise.sh` | `src/wise_csv_ifu.py` | `bash scripts/generate_ifu_wise.sh <year> [options]` |
 
-Both wrappers pass all arguments through to the underlying Python script (`"$@"`), so every optional flag — `--folder`, `--cache`, `-s`, `-f`, `-ff` — works exactly as documented for the Python scripts.
+Both wrappers pass all arguments through to the underlying Python script (`"$@"`), so every optional flag — `--transactions-folder`, `--cache`, `-s`, `-f`, `-ff` — works exactly as documented for the Python scripts.
 
 ```bash
 # Examples
 bash scripts/generate_ifu_yuh.sh 2024
-bash scripts/generate_ifu_wise.sh 2024 --folder transactions -s
+bash scripts/generate_ifu_wise.sh 2024 --transactions-folder transactions -s
 ```
 
 ---
@@ -67,7 +67,7 @@ The script resolves this via `TICKER_NAME_KEYWORDS` in `ticker_isin.py`: a dict 
 
 ## What filename format does `yuh_csv_ifu.py` expect for input CSV files?
 
-Files must be named `yuh_ACTIVITIES_REPORT-<year>.CSV` (or `.csv`) and placed inside the folder specified by `--folder` (default: `transactions/`). The `yuh_` prefix distinguishes Yuh exports from Wise files when both brokers' exports share the same folder.
+Files must be named `yuh_ACTIVITIES_REPORT-<year>.CSV` (or `.csv`) and placed inside the folder specified by `--transactions-folder` (default: `transactions/`). The `yuh_` prefix distinguishes Yuh exports from Wise files when both brokers' exports share the same folder.
 
 Example: `transactions/yuh_ACTIVITIES_REPORT-2024.CSV`
 
@@ -79,9 +79,9 @@ It was renamed to `generate_ifu_yuh.sh` to match the broker-specific naming conv
 
 ---
 
-## Why was `-f` removed as the shorthand for `--folder`?
+## Why was `-f` removed as the shorthand for `--transactions-folder`?
 
-The `-f` flag was reassigned to mean "formal penalty scenario" (40 % surcharge) when the `-s`/`-f`/`-ff` penalty shortcuts were introduced. Use the long form `--folder` instead. The default (`transactions/`) is correct for most setups, so this only affects users who were explicitly passing `-f <path>` on the command line.
+The `-f` flag was reassigned to mean "formal penalty scenario" (40 % surcharge) when the `-s`/`-f`/`-ff` penalty shortcuts were introduced. Use `--transactions-folder` (shorthand `-tf`) instead. The default (`transactions/`) is correct for most setups, so this only affects users who were explicitly passing `-f <path>` on the command line.
 
 ---
 
@@ -198,7 +198,7 @@ Python 3.7+ is sufficient to run all scripts.
 
 ## How do I use `fees_by_activity.py` to audit my Yuh broker fees?
 
-Run `python fees_by_activity.py <year>` (e.g., `python fees_by_activity.py 2023`). It reads `transactions/ACTIVITIES_REPORT-<year>.CSV`, sums the `FEES/COMMISSION` column grouped by `ACTIVITY TYPE`, and prints a table with a grand total. Use `--folder` to point to a different directory.
+Run `python fees_by_activity.py <year>` (e.g., `python fees_by_activity.py 2023`). It reads `transactions/ACTIVITIES_REPORT-<year>.CSV`, sums the `FEES/COMMISSION` column grouped by `ACTIVITY TYPE`, and prints a table with a grand total. Use `--transactions-folder` to point to a different directory.
 
 ```
 ACTIVITY TYPE                    FEES/COMMISSION

@@ -46,7 +46,7 @@ def _run(script: str, arguments: list[str]) -> subprocess.CompletedProcess:
 
 
 def _generate_year(year: int) -> None:
-    shared = ["--folder", str(TRANSACTIONS), "--cache", "fx_cache.json", "--out", str(OUTPUT_ROOT)]
+    shared = ["--transactions-folder", str(TRANSACTIONS), "--cache", "fx_cache.json", "--out", str(OUTPUT_ROOT)]
     if _has_yuh_csv(year):
         _run("yuh_csv_ifu.py", [str(year)] + shared)
     if _has_wise_csv(year):

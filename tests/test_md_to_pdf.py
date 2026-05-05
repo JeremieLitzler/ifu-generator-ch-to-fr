@@ -50,7 +50,7 @@ class TestMdToPdf:
         assert _readme_path(tmp_path, 2024) == tmp_path / '2024' / 'README.md'
 
     def test_pdf_path_is_inside_year_directory(self, tmp_path: Path) -> None:
-        assert _pdf_path(tmp_path, 2024) == tmp_path / '2024' / 'report.pdf'
+        assert _pdf_path(tmp_path, 2024) == tmp_path / '2024' / 'rapport-2024.pdf'
 
     # ------------------------------------------------------------------
     # _preprocess
@@ -144,17 +144,17 @@ class TestMdToPdf:
 
     @pytest.mark.skipif(not _browser_available, reason="No Edge or Chrome browser installed")
     def test_write_pdf_output_is_valid_pdf(self, tmp_path: Path) -> None:
-        output = tmp_path / 'out.pdf'
+        output = tmp_path / 'rapport-2024.pdf'
         _write_pdf(_to_html(_SAMPLE_MARKDOWN), output)
         assert output.read_bytes().startswith(b'%PDF')
 
     @pytest.mark.skipif(not _browser_available, reason="No Edge or Chrome browser installed")
-    def test_convert_creates_report_pdf_next_to_readme(self, tmp_path: Path) -> None:
+    def test_convert_creates_rapport_year_pdf_next_to_readme(self, tmp_path: Path) -> None:
         year_dir = tmp_path / '2024'
         year_dir.mkdir()
         (year_dir / 'README.md').write_text(_SAMPLE_MARKDOWN, encoding='utf-8')
 
         result = _convert(tmp_path, 2024)
 
-        assert result == tmp_path / '2024' / 'report.pdf'
+        assert result == tmp_path / '2024' / 'rapport-2024.pdf'
         assert result.read_bytes().startswith(b'%PDF')

@@ -71,7 +71,7 @@ def _readme_path(ifu_root: Path, year: int) -> Path:
 
 
 def _pdf_path(ifu_root: Path, year: int) -> Path:
-    return ifu_root / str(year) / 'report.pdf'
+    return ifu_root / str(year) / f'rapport-{year}.pdf'
 
 
 def _preprocess(text: str) -> str:

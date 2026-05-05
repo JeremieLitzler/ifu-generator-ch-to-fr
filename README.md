@@ -1,4 +1,4 @@
-# ifu-generator
+# A generator for IFU for a french resident working as a border worker in Switzerland
 
 Generates French tax declaration data (IFU equivalent) for French-resident cross-border workers (frontaliers) holding investment accounts at **Yuh/Swissquote** and/or **Wise Assets**.
 

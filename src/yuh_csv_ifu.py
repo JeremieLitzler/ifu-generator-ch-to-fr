@@ -4,7 +4,7 @@ yuh_csv_ifu.py — Calcule l'équivalent d'un IFU à partir des exports CSV Yuh
 pour la déclaration fiscale française (résident fiscal français).
 
 Usage:
-    python3 yuh_csv_ifu.py <année> [--folder <dossier>] [--cache <fichier_fx>]
+    python3 yuh_csv_ifu.py <année> [--transactions-folder <dossier>] [--cache <fichier_fx>]
                            [-cldp [--penalty-scenario {spontaneous,formal,fraud}]
                                   [--declaration-deadline YYYY-MM-DD]]
 
@@ -330,7 +330,7 @@ def main():
     )
     parser.add_argument('year', type=int,
                         help='Année fiscale cible (ex. 2024)')
-    parser.add_argument('--folder', default='transactions',
+    parser.add_argument('--transactions-folder', '-tf', default='transactions',
                         help="Dossier contenant les CSV Yuh (défaut: 'transactions')")
     parser.add_argument('--cache', default='fx_cache.json',
                         help="Fichier cache des taux BCE (défaut: fx_cache.json)")
@@ -380,7 +380,7 @@ def main():
     de_ruyter = load_de_ruyter_arg(args.de_ruyter_periods)
 
     target_year = args.year
-    folder = Path(args.folder)
+    folder = Path(args.transactions_folder)
     out_dir = Path(args.out) / str(target_year) / 'yuh'
     out_dir.mkdir(parents=True, exist_ok=True)
 

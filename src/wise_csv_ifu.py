@@ -4,7 +4,7 @@ wise_csv_ifu.py — Calcule l'équivalent d'un IFU à partir des exports CSV Wis
 pour la déclaration fiscale française (résident fiscal français, frontalier).
 
 Usage:
-    python3 src/wise_csv_ifu.py <année> [--folder <dossier>] [--cache <fichier_fx>]
+    python3 src/wise_csv_ifu.py <année> [--transactions-folder <dossier>] [--cache <fichier_fx>]
 
 Produit (ifu/wise/<année>/) :
     - <année>_transactions.csv  : opérations de l'année avec conversion EUR
@@ -14,7 +14,7 @@ Produit (ifu/wise/<année>/) :
     - <année>_summary.csv       : positions et PMP au 31/12 de l'année cible
     - <année>_fx_log.csv        : journal des taux BCE utilisés
 
-Input : fichiers `wise_assets_statement_*.csv` dans `--folder`.
+Input : fichiers `wise_assets_statement_*.csv` dans `--transactions-folder`.
 
 Colonnes CSV Wise Assets :
     Traded Asset ID Type | Traded Asset ID Value | Execution Date | Transaction Type |
@@ -313,7 +313,7 @@ def main():
         epilog=__doc__,
     )
     parser.add_argument('year', type=int, help='Année fiscale cible (ex. 2024)')
-    parser.add_argument('--folder', default='transactions',
+    parser.add_argument('--transactions-folder', '-tf', default='transactions',
                         help="Dossier contenant les CSV Wise (défaut: 'transactions')")
     parser.add_argument('--cache', default='fx_cache.json',
                         help="Fichier cache taux BCE (défaut: fx_cache.json)")
@@ -352,7 +352,7 @@ def main():
     de_ruyter = load_de_ruyter_arg(args.de_ruyter_periods)
 
     target_year = args.year
-    folder = Path(args.folder)
+    folder = Path(args.transactions_folder)
     out_dir = Path(args.out) / str(target_year) / 'wise'
     out_dir.mkdir(parents=True, exist_ok=True)
 

@@ -38,13 +38,13 @@ Dependencies:
 ## Usage — Yuh / Swissquote
 
 ```bash
-bash scripts/generate_ifu_yuh.sh <year> [--folder <dir>] [--cache fx_cache.json]
+bash scripts/generate_ifu_yuh.sh <year> [--transactions-folder <dir>] [--cache fx_cache.json]
 ```
 
 Or directly:
 
 ```bash
-python src/yuh_csv_ifu.py 2024 [--folder transactions] [--cache fx_cache.json]
+python src/yuh_csv_ifu.py 2024 [--transactions-folder transactions] [--cache fx_cache.json]
 ```
 
 **With dispositions de Ruyter (frontaliers LAMal — PFU 20,3 %):**
@@ -77,13 +77,13 @@ python src/yuh_csv_ifu.py 2024 -ff   # fraud (80 %)
 ## Usage — Wise Assets
 
 ```bash
-bash scripts/generate_ifu_wise.sh <year> [--folder <dir>] [--cache fx_cache.json]
+bash scripts/generate_ifu_wise.sh <year> [--transactions-folder <dir>] [--cache fx_cache.json]
 ```
 
 Or directly:
 
 ```bash
-python src/wise_csv_ifu.py 2024 [--folder transactions] [--cache fx_cache.json]
+python src/wise_csv_ifu.py 2024 [--transactions-folder transactions] [--cache fx_cache.json]
 ```
 
 Same `--de-ruyter-periods` and penalty flags (`-s`, `-f`, `-ff`) apply.
